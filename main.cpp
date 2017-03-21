@@ -73,7 +73,8 @@ int rotations_completed=0;
 float required_velocity=10;       //Input velocity from user       
 float current_velocity=0;      //Measured velocity of motor
 float Threshold=0;
-
+float triangle_value=0;
+int update_flag;
 Timer timer;
 Thread thread;
 
@@ -210,6 +211,24 @@ void PID_controller(){
     Threshold=pTerm+iTerm+dTerm;
 }    
 
+void triangle_wave_generator() {
+
+    wait(0.005s)
+    triangle_value=triangle_value+amount;    //amount = maximum/14
+    if (triangle_value>max){
+        triangle_value=0;
+    }
+}
+
+void pulse_width_modulation() {
+
+    if(triangle_value>Threshold){
+        update_flag=1;
+    }
+    else{
+        update_flag=0;
+    }
+}
 
 ///////////////////////////////////
 
