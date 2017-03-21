@@ -223,10 +223,7 @@ void triangle_wave_generator() {
 void pulse_width_modulation() {
 
     if(triangle_value>Threshold){
-        update_flag=1;
-    }
-    else{
-        update_flag=0;
+        Update_State();
     }
 }
 
@@ -262,7 +259,9 @@ int main() {
     }
     rotations_completed=0;
     timer.start();
-    for(i=0;i<5;i++){ Update_State(); }
+    for(i=0;i<5;i++){ 
+        Update_State(); 
+    }
     
     
     I1.rise(&Counting);
@@ -270,6 +269,6 @@ int main() {
     I3.rise(&Counting);
     
     while(1){
-        Velocity_Control();
+        triangle_wave_generator();
         }
 }
