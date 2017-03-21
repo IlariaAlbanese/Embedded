@@ -270,5 +270,6 @@ int main() {
     
     while(1){
         triangle_wave_generator();
+        pulse_width_modulation();
         }
 }
