@@ -70,8 +70,8 @@ int temp=0;
 int rotations=600;
 
 int counter=0;
-int required_velocity=10;       //Input velocity from user       
-int current_velocity=0;      //Measured velocity of motor
+float required_velocity=10;       //Input velocity from user       
+float current_velocity=0;      //Measured velocity of motor
 
 Timer timer;
 Thread thread;
@@ -178,11 +178,11 @@ void Counting(){
 
 void Velocity_Control(){
     
-    int8_t delta_velocity; //difference in velocity between required and actual
+    float delta_velocity; //difference in velocity between required and actual
     //calls function Distance_Control
     Distance_Control();
     //calculates delta velocity
-    delta_velocity = required_velocity-current_velocity;
+    delta_velocity = abs(required_velocity-current_velocity);
     //calculates the wait time by subtracting the ratio between the difference and the required velocity from the current wait time
     wait_time = wait_time-(delta_velocity/required_velocity);
     //calls the change of state function after a certain wait time has passed.
