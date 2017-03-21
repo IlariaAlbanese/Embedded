@@ -67,11 +67,12 @@ int j=0;
 int buffer_time[3];
 int buffer_speed[3];
 int temp=0;
-int rotations=600;
+int rotations_user=600;
 
-int counter=0;
+int rotations_completed=0;
 float required_velocity=10;       //Input velocity from user       
 float current_velocity=0;      //Measured velocity of motor
+float Threshold=0;
 
 Timer timer;
 Thread thread;
@@ -140,17 +141,18 @@ void Velocity_Measurement(){
 }
 
 void Distance_Control(){
-
-    if(counter==rotations-40){
+    /*
+    if(rotations_completed==rotations_user-40){
         required_velocity=required_velocity/2;
     }
-    if(counter==rotations-20){
+    if(rotations_completed==rotations_user-20){
         required_velocity=required_velocity/4;
     }
-    if(counter==rotations-10){
+    if(rotations_completed==rotations_user-10){
         required_velocity=required_velocity/8;
     }
-    if (counter>=rotations){
+    */
+    if (rotations_completed>=rotations){
         stop_motor();
     }
 }
@@ -172,10 +174,11 @@ void Counting(){
     Distance_Control();
     if(j>2){
         j=0;
-        counter++;
+        rotations_completed++;
     }
 } 
 
+/*
 void Velocity_Control(){
     
     float delta_velocity; //difference in velocity between required and actual
@@ -188,11 +191,11 @@ void Velocity_Control(){
     //calls the change of state function after a certain wait time has passed.
     Controlled_Next_State.attach(&Update_State, wait_time);
 }
+*/
 
 
-/*
 void PID_controller(){
-    float currentError= desidedValue-currentValue;
+    float currentError= rotations_user-rotations_completed;
     float pTerm= Kp*currentError;
     float iSum= iSum+currentError;
     if (iSum>iSumMax){
@@ -204,9 +207,9 @@ void PID_controller(){
     float iTerm= Ki*iSum;
     float dTerm= Kd*(currentError-previousError);
     float previousError=currentError;
-    float controlOutput=pTerm+iTerm+dTerm;
+    Threshold=pTerm+iTerm+dTerm;
 }    
-*/
+
 
 ///////////////////////////////////
 
@@ -238,7 +241,7 @@ int main() {
         buffer_time[i]=0;
         buffer_speed[i]=0;
     }
-    counter=0;
+    rotations_completed=0;
     timer.start();
     for(i=0;i<5;i++){ Update_State(); }
     
