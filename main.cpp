@@ -1,6 +1,6 @@
 #include "mbed.h"
 #include "rtos.h"
-
+#include "PID.h"
 //Photointerrupter input pins
 #define I1pin D2
 #define I2pin D11
@@ -52,12 +52,14 @@ InterruptIn I2(I2pin);
 InterruptIn I3(I3pin);
 
 //Motor Drive outputs
-DigitalOut L1L(L1Lpin);
-DigitalOut L1H(L1Hpin);
-DigitalOut L2L(L2Lpin);
-DigitalOut L2H(L2Hpin);
-DigitalOut L3L(L3Lpin);
-DigitalOut L3H(L3Hpin);
+PwmOut L1L(L1Lpin);
+PwmOut L1H(L1Hpin);
+PwmOut L2L(L2Lpin);
+PwmOut L2H(L2Hpin);
+PwmOut L3L(L3Lpin);
+PwmOut L3H(L3Hpin);
+
+PID speed_controller(0.1,1,1,0.01);
 
 int8_t orState = 0;    //Rotot offset at motor state 0
 int8_t intState = 0;
@@ -67,24 +69,25 @@ int j=0;
 int buffer_time[3];
 int buffer_speed[3];
 int temp=0;
-int rotations_user=600;
+float rotations_user=600;
 
 int rotations_completed=0;
 float required_velocity=10;       //Input velocity from user       
 float current_velocity=0;      //Measured velocity of motor
 float Threshold=0;
 float triangle_value=0;
-int update_flag;
+float previousError=0;
 Timer timer;
 Thread thread;
 
 int iSumMax=3;
 int iSumMin=0.1;
-int Kp=1;
-int Kd=1;
-int Ki=1;
-
-
+float Kp=1;
+float Kd=0.001;
+float Ki=0.01;
+float duty_cycle=0.6f;
+//controller.setInputLimits(0.0,required_velocity);
+//controller.setOutputLimits(0.0, 0.5f);
 float wait_time=1;              //Time to wait between chages of state
 
 Ticker Controlled_Next_State;   //Ticker that calls change state at specific frequency
@@ -99,18 +102,18 @@ void motorOut(int8_t driveState){
       
     //Turn off first
     if (~driveOut & 0x01) L1L = 0;
-    if (~driveOut & 0x02) L1H = 1;
+    if (~driveOut & 0x02) L1H.write(duty_cycle);
     if (~driveOut & 0x04) L2L = 0;
-    if (~driveOut & 0x08) L2H = 1;
+    if (~driveOut & 0x08) L2H.write(duty_cycle);
     if (~driveOut & 0x10) L3L = 0;
-    if (~driveOut & 0x20) L3H = 1;
+    if (~driveOut & 0x20) L3H.write(duty_cycle);
     
     //Then turn on
-    if (driveOut & 0x01) L1L = 1;
+    if (driveOut & 0x01) L1L.write(duty_cycle);
     if (driveOut & 0x02) L1H = 0;
-    if (driveOut & 0x04) L2L = 1;
+    if (driveOut & 0x04) L2L.write(duty_cycle);
     if (driveOut & 0x08) L2H = 0;
-    if (driveOut & 0x10) L3L = 1;
+    if (driveOut & 0x10) L3L.write(duty_cycle);
     if (driveOut & 0x20) L3H = 0;
     }
     
@@ -153,7 +156,7 @@ void Distance_Control(){
         required_velocity=required_velocity/8;
     }
     */
-    if (rotations_completed>=rotations){
+    if (rotations_completed>=rotations_user){
         stop_motor();
     }
 }
@@ -179,19 +182,10 @@ void Counting(){
     }
 } 
 
-/*
-void Velocity_Control(){
-    
-    float delta_velocity; //difference in velocity between required and actual
-    //calculates delta velocity
-    delta_velocity = required_velocity-current_velocity;
-    
-}
-*/
 
 
 void PID_controller(){
-    float currentError= rotations_user-rotations_completed;
+    float currentError= required_velocity-current_velocity;
     float pTerm= Kp*currentError;
     float iSum= iSum+currentError;
     if (iSum>iSumMax){
@@ -202,25 +196,9 @@ void PID_controller(){
     }
     float iTerm= Ki*iSum;
     float dTerm= Kd*(currentError-previousError);
-    float previousError=currentError;
+    previousError=currentError;
     Threshold=pTerm+iTerm+dTerm;
 }    
-
-void triangle_wave_generator() {
-
-    wait(0.005s)
-    triangle_value=triangle_value+amount;    //amount = maximum/14
-    if (triangle_value>max){
-        triangle_value=0;
-    }
-}
-
-void pulse_width_modulation() {
-
-    if(triangle_value>Threshold){
-        Update_State();
-    }
-}
 
 ///////////////////////////////////
 
@@ -259,12 +237,11 @@ int main() {
     }
     
     
-    I1.rise(&Counting);
-    I2.rise(&Counting);
-    I3.rise(&Counting);
+    //I1.rise(&Counting);
+    //I2.rise(&Counting);
+    //I3.rise(&Counting);
     
     while(1){
-        triangle_wave_generator();
-        pulse_width_modulation();
+        Update_State();
         }
 }
