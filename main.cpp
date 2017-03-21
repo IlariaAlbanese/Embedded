@@ -182,7 +182,7 @@ void Velocity_Control(){
     //calls function Distance_Control
     Distance_Control();
     //calculates delta velocity
-    delta_velocity = abs(required_velocity-current_velocity);
+    delta_velocity = required_velocity-current_velocity;
     //calculates the wait time by subtracting the ratio between the difference and the required velocity from the current wait time
     wait_time = wait_time-(delta_velocity/required_velocity);
     //calls the change of state function after a certain wait time has passed.
