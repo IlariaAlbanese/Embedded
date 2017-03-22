@@ -1,6 +1,7 @@
 #include "mbed.h"
 #include "rtos.h"
 #include "PID.h"
+#include "mbed_memory_status.h"
 //Photointerrupter input pins
 #define I1pin D2
 #define I2pin D11
@@ -67,22 +68,20 @@ int j=0;
 int buffer_time[3];
 int buffer_speed[3];
 int temp=0;
-volatile float rotations_user=600;
+float rotations_user=50;
 
-int rotations_completed=0;
-volatile float required_velocity=10;       //Input velocity from user       
+volatile int rotations_completed=0;
+volatile float required_velocity=0.7f;       //Input velocity from user       
 float current_velocity=0;      //Measured velocity of motor
 float Threshold=0;
 Timer timer;
-Thread thread;
-
 
 float VKc=0.2;
 float VtauD=0.01;
 float VtauI=1;
 float duty_cycle=1.0f;
-float Vinterval= 1;
-float Vout=0;
+float Vinterval= 0.01;
+float Vout=0.6f;
 //PID speed_controller(Kp,tauI,tauD,checkfreq);
 //float wait_time=1;              //Time to wait between chages of state
 
@@ -96,18 +95,18 @@ void motorOut(int8_t driveState){
     int8_t driveOut = driveTable[driveState & 0x07];
     //Turn off first
     if (~driveOut & 0x01) L1L = 0;
-    if (~driveOut & 0x02) L1H.write(duty_cycle);
+    if (~driveOut & 0x02) L1H.write(Vout);
     if (~driveOut & 0x04) L2L = 0;
-    if (~driveOut & 0x08) L2H.write(duty_cycle);
+    if (~driveOut & 0x08) L2H.write(Vout);
     if (~driveOut & 0x10) L3L = 0;
-    if (~driveOut & 0x20) L3H.write(duty_cycle);
+    if (~driveOut & 0x20) L3H.write(Vout);
     
     //Then turn on
-    if (driveOut & 0x01) L1L.write(duty_cycle);
+    if (driveOut & 0x01) L1L.write(Vout);
     if (driveOut & 0x02) L1H = 0;
-    if (driveOut & 0x04) L2L.write(duty_cycle);
+    if (driveOut & 0x04) L2L.write(Vout);
     if (driveOut & 0x08) L2H = 0;
-    if (driveOut & 0x10) L3L.write(duty_cycle);
+    if (driveOut & 0x10) L3L.write(Vout);
     if (driveOut & 0x20) L3H = 0;
     }
     
@@ -135,26 +134,28 @@ void stop_motor(){
 
 
 void Velocity_Measurement(){
-    current_velocity= 1000/buffer_speed[i];
+    current_velocity= 1000/buffer_speed[j];
 }
 
 void Distance_Control(){
+    led1=1;
     if (rotations_completed>=rotations_user){
         stop_motor();
     }
 }
 
 PID velocityControl(VKc, VtauI, VtauD, Vinterval);
-void PIDinit(){
+void PIDinit(void){
+    velocityControl.setInputLimits(0.0,current_velocity);
+    velocityControl.setOutputLimits(0.58f, 1.0f);
     velocityControl.setTunings(VKc, VtauI, VtauD);
     velocityControl.setInterval(Vinterval);
     velocityControl.setSetPoint(required_velocity);
     velocityControl.setMode(1); 
 }
 
-Thread velocityControlThread;
 
-void velocityPID(){
+void velocityPID(void){
     while(1){
         velocityControl.setProcessValue(current_velocity);
         Vout= velocityControl.compute();
@@ -168,6 +169,7 @@ void Update_State(){
 }
     
 void Counting(){
+    //led1=1;
     temp= timer.read_ms();
     buffer_speed[j]=abs(buffer_time[j]-temp);
     buffer_time[j]=temp;
@@ -177,30 +179,27 @@ void Counting(){
     if(j>2){
         j=0;
         rotations_completed++;
+        if(rotations_completed>0){
+            }
     }
 } 
-
 void User_read(void);
-Thread userReadThread;
-
 //Main
 int main() {
-    
     PIDinit();
 
-    pc.printf("Hello\n\r");
+    //pc.printf("Hello\n\r");
     
     //Run the motor synchronisation
     orState = motorHome();
-    pc.printf("Rotor origin: %x\n\r",orState);
+    //pc.printf("Rotor origin: %x\n\r",orState);
     
     for(i=0; i<3; i++){
         buffer_time[i]=0;
         buffer_speed[i]=0;
     }
-    rotations_completed=0;
     timer.start();
-    
+    //pc.printf("Setting up pwm");
         L1L.period_ms(100);
         L1H.period_ms(100);
         L2L.period_ms(100);
@@ -211,16 +210,19 @@ int main() {
     for(int k=0;k<5;k++){ 
         Update_State();
     }
-    ///speed_controller.setInputLimits(0.0,current_velocity);
-    //speed_controller.setOutputLimits(0.6f, 1.0f);
+
     
     I1.rise(&Counting);
     I2.rise(&Counting);
     I3.rise(&Counting);
-    userReadThread.start(&User_read);
-    velocityControlThread.start(&velocityPID);
+    //Thread velocityControlThread;
+    //velocityControlThread.start(&velocityPID);
+    //pc.printf("Setting up user shit");
+    //Thread userReadThread;
+    //userReadThread.start(&User_read);
     while(1){
         Update_State();
+        pc.printf("Vout is %f\n\r",rotations_completed);
         }
 }
 
@@ -228,15 +230,16 @@ void User_read(void){
         pc.printf("Ready to read");
         while(1){
         if(pc.readable()){
-            char temp=pc.getc();
-            if (temp=='R'){
+            char temp1=pc.getc();
+            if (temp1=='R'){
                 pc.scanf("%5f",&rotations_user);
             }
-            else if(temp=='V'){
+            else if(temp1=='V'){
                 pc.scanf("%5f",&required_velocity);
             }
             pc.printf("R is %f\n\r",rotations_user);
             pc.printf("V is %f\n\r",required_velocity);   
         }
+        Thread::wait(1);
     }
 }
