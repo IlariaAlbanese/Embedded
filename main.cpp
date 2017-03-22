@@ -77,15 +77,16 @@ Timer timer;
 Thread thread;
 
 
-float Kp=1;
-float tauD=0.001;
-float tauI=0.01;
+float VKc=0.2;
+float VtauD=0.01;
+float VtauI=1;
 float duty_cycle=1.0f;
-float checkfreq=0.033;
+float Vinterval= 1;
+float Vout=0;
 //PID speed_controller(Kp,tauI,tauD,checkfreq);
-float wait_time=1;              //Time to wait between chages of state
+//float wait_time=1;              //Time to wait between chages of state
 
-void Velocity_Control(void);
+//void Velocity_Control(void);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 //Set a given drive state
@@ -95,18 +96,18 @@ void motorOut(int8_t driveState){
     int8_t driveOut = driveTable[driveState & 0x07];
     //Turn off first
     if (~driveOut & 0x01) L1L = 0;
-    if (~driveOut & 0x02) L1H = duty_cycle;
+    if (~driveOut & 0x02) L1H.write(duty_cycle);
     if (~driveOut & 0x04) L2L = 0;
-    if (~driveOut & 0x08) L2H = duty_cycle;
+    if (~driveOut & 0x08) L2H.write(duty_cycle);
     if (~driveOut & 0x10) L3L = 0;
-    if (~driveOut & 0x20) L3H = duty_cycle;
+    if (~driveOut & 0x20) L3H.write(duty_cycle);
     
     //Then turn on
-    if (driveOut & 0x01) L1L = duty_cycle;
+    if (driveOut & 0x01) L1L.write(duty_cycle);
     if (driveOut & 0x02) L1H = 0;
-    if (driveOut & 0x04) L2L = duty_cycle;
+    if (driveOut & 0x04) L2L.write(duty_cycle);
     if (driveOut & 0x08) L2H = 0;
-    if (driveOut & 0x10) L3L = duty_cycle;
+    if (driveOut & 0x10) L3L.write(duty_cycle);
     if (driveOut & 0x20) L3H = 0;
     }
     
@@ -143,8 +144,23 @@ void Distance_Control(){
     }
 }
 
+PID velocityControl(VKc, VtauI, VtauD, Vinterval);
+void PIDinit(){
+    velocityControl.setTunings(VKc, VtauI, VtauD);
+    velocityControl.setInterval(Vinterval);
+    velocityControl.setSetPoint(required_velocity);
+    velocityControl.setMode(1); 
+}
 
+Thread velocityControlThread;
 
+void velocityPID(){
+    while(1){
+        velocityControl.setProcessValue(current_velocity);
+        Vout= velocityControl.compute();
+        Thread::wait(Vinterval);
+    }
+}
 
 void Update_State(){
     intState = readRotorState();
@@ -165,11 +181,12 @@ void Counting(){
 } 
 
 void User_read(void);
+Thread userReadThread;
 
 //Main
 int main() {
     
-    
+    PIDinit();
 
     pc.printf("Hello\n\r");
     
@@ -184,39 +201,42 @@ int main() {
     rotations_completed=0;
     timer.start();
     
-        L1L.period_ms(1);
-        L1H.period_ms(1);
-        L2L.period_ms(1);
-        L2H.period_ms(1);
-        L3L.period_ms(1);
-        L2H.period_ms(1);
+        L1L.period_ms(100);
+        L1H.period_ms(100);
+        L2L.period_ms(100);
+        L2H.period_ms(100);
+        L3L.period_ms(100);
+        L2H.period_ms(100);
+        
     for(int k=0;k<5;k++){ 
         Update_State();
     }
-    //speed_controller.setInputLimits(0.0,current_velocity);
+    ///speed_controller.setInputLimits(0.0,current_velocity);
     //speed_controller.setOutputLimits(0.6f, 1.0f);
     
-    //I1.rise(&Counting);
-    //I2.rise(&Counting);
-    //I3.rise(&Counting);
-    //thread.start(User_read);
+    I1.rise(&Counting);
+    I2.rise(&Counting);
+    I3.rise(&Counting);
+    userReadThread.start(&User_read);
+    velocityControlThread.start(&velocityPID);
     while(1){
         Update_State();
         }
 }
+
 void User_read(void){
         pc.printf("Ready to read");
         while(1){
         if(pc.readable()){
-        char temp=pc.getc();
-        if (temp=='R'){
-            pc.scanf("%5f",&rotations_user);
+            char temp=pc.getc();
+            if (temp=='R'){
+                pc.scanf("%5f",&rotations_user);
             }
-        else if(temp=='V'){
-            pc.scanf("%5f",&required_velocity);
+            else if(temp=='V'){
+                pc.scanf("%5f",&required_velocity);
             }
-         pc.printf("R is %f\n\r",rotations_user);
-         pc.printf("V is %f\n\r",required_velocity);   
+            pc.printf("R is %f\n\r",rotations_user);
+            pc.printf("V is %f\n\r",required_velocity);   
+        }
     }
-    }
-    }
+}
