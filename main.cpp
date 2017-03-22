@@ -59,7 +59,6 @@ PwmOut L2H(L2Hpin);
 PwmOut L3L(L3Lpin);
 PwmOut L3H(L3Hpin);
 
-
 int8_t orState = 0;    //Rotot offset at motor state 0
 int8_t intState = 0;
 int8_t intStateOld = 0;
@@ -68,10 +67,10 @@ int j=0;
 int buffer_time[3];
 int buffer_speed[3];
 int temp=0;
-float rotations_user=600;
+volatile float rotations_user=600;
 
 int rotations_completed=0;
-float required_velocity=10;       //Input velocity from user       
+volatile float required_velocity=10;       //Input velocity from user       
 float current_velocity=0;      //Measured velocity of motor
 float Threshold=0;
 Timer timer;
@@ -83,7 +82,7 @@ float tauD=0.001;
 float tauI=0.01;
 float duty_cycle=1.0f;
 float checkfreq=0.033;
-PID speed_controller(Kp,tauI,tauD,checkfreq);
+//PID speed_controller(Kp,tauI,tauD,checkfreq);
 float wait_time=1;              //Time to wait between chages of state
 
 void Velocity_Control(void);
@@ -94,7 +93,6 @@ void motorOut(int8_t driveState){
     
     //Lookup the output byte from the drive state.
     int8_t driveOut = driveTable[driveState & 0x07];
-      
     //Turn off first
     if (~driveOut & 0x01) L1L = 0;
     if (~driveOut & 0x02) L1H.write(duty_cycle);
@@ -166,10 +164,7 @@ void Counting(){
     }
 } 
 
-
- 
-
-///////////////////////////////////
+void User_read(void);
 
 //Main
 int main() {
@@ -181,7 +176,6 @@ int main() {
     //Run the motor synchronisation
     orState = motorHome();
     pc.printf("Rotor origin: %x\n\r",orState);
-    */
     
     for(i=0; i<3; i++){
         buffer_time[i]=0;
@@ -189,17 +183,40 @@ int main() {
     }
     rotations_completed=0;
     timer.start();
-    for(i=0;i<5;i++){ 
-        Update_State(); 
+    
+        L1L.period_ms(1);
+        L1H.period_ms(1);
+        L2L.period_ms(1);
+        L2H.period_ms(1);
+        L3L.period_ms(1);
+        L2H.period_ms(1);
+    for(int k=0;k<5;k++){ 
+        Update_State();
     }
-    speed_controller.setInputLimits(0.0,current_velocity);
-    speed_controller.setOutputLimits(0.6f, 1.0f);
+    //speed_controller.setInputLimits(0.0,current_velocity);
+    //speed_controller.setOutputLimits(0.6f, 1.0f);
     
-    I1.rise(&Counting);
-    I2.rise(&Counting);
-    I3.rise(&Counting);
-    
+    //I1.rise(&Counting);
+    //I2.rise(&Counting);
+    //I3.rise(&Counting);
+    //thread.start(User_read);
     while(1){
         Update_State();
         }
 }
+void User_read(void){
+        pc.printf("Ready to read");
+        while(1){
+        if(pc.readable()){
+        char temp=pc.getc();
+        if (temp=='R'){
+            pc.scanf("%5f",&rotations_user);
+            }
+        else if(temp=='V'){
+            pc.scanf("%5f",&required_velocity);
+            }
+         pc.printf("R is %f\n\r",rotations_user);
+         pc.printf("V is %f\n\r",required_velocity);   
+    }
+    }
+    }
