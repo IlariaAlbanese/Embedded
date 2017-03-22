@@ -59,7 +59,6 @@ PwmOut L2H(L2Hpin);
 PwmOut L3L(L3Lpin);
 PwmOut L3H(L3Hpin);
 
-PID speed_controller(0.1,1,1,0.01);
 
 int8_t orState = 0;    //Rotot offset at motor state 0
 int8_t intState = 0;
@@ -75,22 +74,18 @@ int rotations_completed=0;
 float required_velocity=10;       //Input velocity from user       
 float current_velocity=0;      //Measured velocity of motor
 float Threshold=0;
-float triangle_value=0;
-float previousError=0;
 Timer timer;
 Thread thread;
 
-int iSumMax=3;
-int iSumMin=0.1;
+
 float Kp=1;
-float Kd=0.001;
-float Ki=0.01;
-float duty_cycle=0.6f;
-//controller.setInputLimits(0.0,required_velocity);
-//controller.setOutputLimits(0.0, 0.5f);
+float tauD=0.001;
+float tauI=0.01;
+float duty_cycle=1.0f;
+float checkfreq=0.033;
+PID speed_controller(Kp,tauI,tauD,checkfreq);
 float wait_time=1;              //Time to wait between chages of state
 
-Ticker Controlled_Next_State;   //Ticker that calls change state at specific frequency
 void Velocity_Control(void);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -145,17 +140,6 @@ void Velocity_Measurement(){
 }
 
 void Distance_Control(){
-    /*
-    if(rotations_completed==rotations_user-40){
-        required_velocity=required_velocity/2;
-    }
-    if(rotations_completed==rotations_user-20){
-        required_velocity=required_velocity/4;
-    }
-    if(rotations_completed==rotations_user-10){
-        required_velocity=required_velocity/8;
-    }
-    */
     if (rotations_completed>=rotations_user){
         stop_motor();
     }
@@ -183,22 +167,7 @@ void Counting(){
 } 
 
 
-
-void PID_controller(){
-    float currentError= required_velocity-current_velocity;
-    float pTerm= Kp*currentError;
-    float iSum= iSum+currentError;
-    if (iSum>iSumMax){
-        iSum=iSumMax;
-    }
-    else if (iSum<iSumMin){
-        iSum=iSumMin;
-    }
-    float iTerm= Ki*iSum;
-    float dTerm= Kd*(currentError-previousError);
-    previousError=currentError;
-    Threshold=pTerm+iTerm+dTerm;
-}    
+ 
 
 ///////////////////////////////////
 
@@ -206,24 +175,12 @@ void PID_controller(){
 int main() {
     
     
-        //Initialise the serial port
 
     pc.printf("Hello\n\r");
     
     //Run the motor synchronisation
     orState = motorHome();
     pc.printf("Rotor origin: %x\n\r",orState);
-
-    //orState is subtracted from future rotor state inputs to align rotor and motor states
-    
-    //Poll the rotor state and set the motor outputs accordingly to spin the motor
-   /* while (1) {
-        intState = readRotorState();
-        if (intState != intStateOld) {
-            intStateOld = intState;
-            motorOut((intState-orState+lead+6)%6); //+6 to make sure the remainder is positive
-        }
-    }
     */
     
     for(i=0; i<3; i++){
@@ -235,11 +192,12 @@ int main() {
     for(i=0;i<5;i++){ 
         Update_State(); 
     }
+    speed_controller.setInputLimits(0.0,current_velocity);
+    speed_controller.setOutputLimits(0.6f, 1.0f);
     
-    
-    //I1.rise(&Counting);
-    //I2.rise(&Counting);
-    //I3.rise(&Counting);
+    I1.rise(&Counting);
+    I2.rise(&Counting);
+    I3.rise(&Counting);
     
     while(1){
         Update_State();
