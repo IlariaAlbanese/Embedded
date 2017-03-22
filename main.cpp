@@ -95,18 +95,18 @@ void motorOut(int8_t driveState){
     int8_t driveOut = driveTable[driveState & 0x07];
     //Turn off first
     if (~driveOut & 0x01) L1L = 0;
-    if (~driveOut & 0x02) L1H.write(duty_cycle);
+    if (~driveOut & 0x02) L1H = duty_cycle;
     if (~driveOut & 0x04) L2L = 0;
-    if (~driveOut & 0x08) L2H.write(duty_cycle);
+    if (~driveOut & 0x08) L2H = duty_cycle;
     if (~driveOut & 0x10) L3L = 0;
-    if (~driveOut & 0x20) L3H.write(duty_cycle);
+    if (~driveOut & 0x20) L3H = duty_cycle;
     
     //Then turn on
-    if (driveOut & 0x01) L1L.write(duty_cycle);
+    if (driveOut & 0x01) L1L = duty_cycle;
     if (driveOut & 0x02) L1H = 0;
-    if (driveOut & 0x04) L2L.write(duty_cycle);
+    if (driveOut & 0x04) L2L = duty_cycle;
     if (driveOut & 0x08) L2H = 0;
-    if (driveOut & 0x10) L3L.write(duty_cycle);
+    if (driveOut & 0x10) L3L = duty_cycle;
     if (driveOut & 0x20) L3H = 0;
     }
     
