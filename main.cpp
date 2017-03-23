@@ -250,7 +250,11 @@ void Counting_precision(){
     
     increments++;
     position_degrees= increments*(360/117);
-    precision_rotations=position_degrees/360;
+    if (position_degrees>360){
+    position_degrees-=360;
+    precision_rotations++;
+    }
+    precision_rotations+=position_degrees/360;
     PrecisionDistance_Control();
 }
 
