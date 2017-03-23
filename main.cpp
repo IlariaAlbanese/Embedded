@@ -64,9 +64,9 @@ int8_t orState = 0;    //Rotot offset at motor state 0
 int8_t intState = 0;
 int8_t intStateOld = 0;
 int i=0;
-int j=0;
-int buffer_time[3];
-int buffer_speed[3];
+//int j=0;
+int buffer_time;
+int buffer_speed;
 int temp=0;
 float rotations_user=50;
 
@@ -82,7 +82,6 @@ float VtauI=1;
 float duty_cycle=1.0f;
 float Vinterval= 0.01;
 float Vout=0.6f;
-//PID speed_controller(Kp,tauI,tauD,checkfreq);
 //float wait_time=1;              //Time to wait between chages of state
 
 //void Velocity_Control(void);
@@ -145,6 +144,7 @@ void Distance_Control(){
 }
 
 PID velocityControl(VKc, VtauI, VtauD, Vinterval);
+
 void PIDinit(void){
     velocityControl.setInputLimits(0.0,current_velocity);
     velocityControl.setOutputLimits(0.58f, 1.0f);
@@ -163,6 +163,12 @@ void velocityPID(void){
     }
 }
 
+void ISR(){
+    Update_State();
+    if (intState==0) {
+    Counting();
+    }
+}
 void Update_State(){
     intState = readRotorState();
     motorOut((intState-orState+lead+6)%6); //+6 to make sure the remainder is positive
@@ -170,18 +176,13 @@ void Update_State(){
     
 void Counting(){
     //led1=1;
-    Update_State();
+    //Update_State();
     temp= timer.read_ms();
-    buffer_speed[j]=abs(buffer_time[j]-temp);
-    buffer_time[j]=temp;
+    buffer_speed=abs(buffer_time-temp);
+    buffer_time=temp;
     Velocity_Measurement();
-    j++;
     Distance_Control();
-    if(j>2){
-        j=0;
-        rotations_completed++;
-        if(rotations_completed>0){
-            }
+    rotations_completed++;
     }
 } 
 void User_read(void);
@@ -196,10 +197,9 @@ int main() {
     orState = motorHome();
     //pc.printf("Rotor origin: %x\n\r",orState);
     
-    for(i=0; i<3; i++){
-        buffer_time[i]=0;
-        buffer_speed[i]=0;
-    }
+    buffer_time=0;
+    buffer_speed=0;
+    
     timer.start();
     //pc.printf("Setting up pwm");
         L1L.period_ms(100);
@@ -214,16 +214,16 @@ int main() {
     }
 
     
-    I1.rise(&Counting);
-    I2.rise(&Counting);
-    I3.rise(&Counting);
+    I1.rise(&ISR);
+    I2.rise(&ISR);
+    I3.rise(&ISR);
     velocityControlThread=new Thread(osPriorityNormal, 256);
     velocityControlThread->start(&velocityPID);
     userReadThread=new Thread(osPriorityNormal);
     userReadThread->start(&User_read);
     while(1){
-         pc.printf("R is %f\n\r",rotations_user);
-         pc.printf("V is %f\n\r",required_velocity);   
+         pc.printf("R is %f\n\r",rotations_completed);
+         pc.printf("V is %f\n\r",current_velocity);   
         }
 }
 
