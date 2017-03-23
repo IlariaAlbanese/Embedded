@@ -69,7 +69,7 @@ int buffer_time;
 int buffer_speed;
 int temp=0;
 float rotations_user=50;
-int frequency= 440;
+float frequency= 0;
 
 volatile int rotations_completed=0;
 volatile float required_velocity=0.7f;       //Input velocity from user       
@@ -243,4 +243,32 @@ void User_read(void){
         }
         Thread::wait(1);
     }
+}
+
+void play(){
+    if(note==A){
+        frequency=440.0;
+    }
+     else if(note==B){
+        frequency= 493.88;
+    }
+    else if(note==C){
+        frequency=261.63;
+    }
+    else if(note==D){
+        frequency=293.66;
+    }
+    else if(note==E){
+        frequency=329.63;
+    }
+    else if(note==F){
+        frequency=349.23;
+    }
+    else if(note==G){
+        frequency=392.00;
+    }
+    else{
+        frequency=0.0;
+    }
+    
 }
