@@ -138,6 +138,9 @@ void Velocity_Measurement(){
 
 void Distance_Control(){
     led1=1;
+    if ((rotations_user-rotations_completed)<5){
+        velocity_required=0;
+    }
     if (rotations_completed>=rotations_user){
         stop_motor();
     }
