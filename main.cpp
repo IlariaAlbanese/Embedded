@@ -71,6 +71,8 @@ int i=0;
 int buffer_time;
 int buffer_speed;
 int temp=0;
+int increments=0;
+float precision_rotations=0;
 float rotations_user=50;
 float frequency= 1.0;
 int quadrature_state=0;
@@ -148,7 +150,15 @@ void Velocity_Measurement(){
     current_velocity= 1000/buffer_speed;
 }
 
-
+void PrecisionDistance_Control(){
+    led1=1;
+    if ((rotations_user-precision_rotations)<5){
+        velocity_required=0;
+    }
+    if (precision_rotations>=rotations_user){
+        stop_motor();
+    }
+}
 
 void Distance_Control(){
     led1=1;
@@ -211,7 +221,7 @@ void ISR(){
     }
 }
 
-void precisionISR(void)
+void precision_ISR(void)
 {
     quadrature_state = (CHA*2 + CHB);
     if(quadrature_state==0){
@@ -236,9 +246,12 @@ void Counting(){
 } 
 
 void Counting_precision(){
+    float position_degrees;
+    
     increments++;
     position_degrees= increments*(360/117);
-    Precision_DistanceControl();
+    precision_rotations=position_degrees/360;
+    PrecisionDistance_Control();
 }
 
 void User_read(void);
