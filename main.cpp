@@ -47,6 +47,7 @@ const int8_t lead = -2;  //2 for forwards, -2 for backwards
 
 //Status LED
 DigitalOut led1(LED1);
+//DigitalOut led2(LED2);
 
 //Photointerrupter inputs
 InterruptIn I1(I1pin);
@@ -88,7 +89,7 @@ float VtauD=0.01;
 float VtauI=1;
 float duty_cycle=1.0f;
 float Vinterval= 0.01;
-float Vout=0.6f;
+float Vout=1.0f;
 
 int index;
 int index_R=0;
@@ -158,7 +159,7 @@ void Velocity_Measurement(){
 }
 
 void PrecisionDistance_Control(){
-    led1=1;
+    //led1=1;
     if ((required_rotations-precision_rotations)<5){
         required_velocity=0;
     }
@@ -169,7 +170,7 @@ void PrecisionDistance_Control(){
 
 void Distance_Control(){
     float difference=required_rotations-current_rotations;
-    led1=1;
+    //led1=1;
     if (difference<10){
         required_velocity= required_velocity*(difference/10);
     }
@@ -279,18 +280,22 @@ Thread* userReadThread;
 Thread* velocityControlThread;
 int main() {
     PIDinit();
-
+    led1=1;
+    
     //pc.printf("Hello\n\r");
     
     //Run the motor synchronisation
     orState = motorHome();
     //pc.printf("Rotor origin: %x\n\r",orState);
-    
+    wait(1.0);
+    led1=0;
     current_time=0;
     speed=0;
-    
+    wait(1.0);
+    led1=1;
     timer.start();
-    
+    wait(1.0);
+    led1=0;
     //pc.printf("Setting up pwm");
     /*
         L1H.period(1/frequency);
