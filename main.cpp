@@ -52,6 +52,9 @@ InterruptIn I1(I1pin);
 InterruptIn I2(I2pin);
 InterruptIn I3(I3pin);
 
+InterruptIn CHA(CHA);
+InterruptIn CHB(CHB);
+
 //Motor Drive outputs
 DigitalOut L1L(L1Lpin);
 PwmOut L1H(L1Hpin);
@@ -70,7 +73,7 @@ int buffer_speed;
 int temp=0;
 float rotations_user=50;
 float frequency= 1.0;
-
+int quadrature_state=0;
 volatile int rotations_completed=0;
 volatile float required_velocity=0.7f;       //Input velocity from user       
 float current_velocity=0;      //Measured velocity of motor
@@ -143,9 +146,7 @@ void Velocity_Measurement(){
     current_velocity= 1000/buffer_speed;
 }
 
-void Velocity_Measurement_precision(){
-    current_velocity_precision= 1000/precision_speed;
-}
+
 
 void Distance_Control(){
     led1=1;
@@ -202,8 +203,7 @@ void ISR(){
 
 void precisionISR(void)
 {
-    int quadrature_state = (CHA*2 + CHB);
-    int temp_prec;
+    quadrature_state = (CHA*2 + CHB);
     if(quadrature_state==0){
     Counting_precision();
     }
@@ -226,16 +226,9 @@ void Counting(){
 } 
 
 void Counting_precision(){
-    //led1=1;
-    //Update_State();
-    //temp_prec= timer.read_ms();
-    //precision_speed=abs(precision_time-temp);
-    //precision_time=temp;
-    //Velocity_Measurement_precision();
-    //Distance_Control();
     increments++;
-    current_position
-    
+    position_degrees= increments*(360/117);
+    Precision_DistanceControl();
 }
 
 void User_read(void);
