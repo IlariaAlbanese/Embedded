@@ -83,6 +83,12 @@ float VtauI=1;
 float duty_cycle=1.0f;
 float Vinterval= 0.01;
 float Vout=0.6f;
+
+float RKc=0.2;
+float RtauD=0.01;
+float RtauI=1;
+float R_duty_cycle=1.0f;
+
 //float wait_time=1;              //Time to wait between chages of state
 
 //void Velocity_Control(void);
@@ -160,6 +166,14 @@ void PIDinit(void){
     velocityControl.setInterval(Vinterval);
     velocityControl.setSetPoint(required_velocity);
     velocityControl.setMode(1); 
+    
+    distanceControl.setInputLimits(0.0,rotations_completed);
+    distanceControl.setOutputLimits(0.58f, 1.0f);
+    distanceControl.setTunings(RKc, RtauI, RtauD);
+    distanceControl.setInterval(Vinterval);
+    distanceControl.setSetPoint(rotations_user);
+    distanceControl.setMode(1);
+
 }
 
 
@@ -167,6 +181,14 @@ void velocityPID(void){
     while(1){
         velocityControl.setProcessValue(current_velocity);
         Vout= velocityControl.compute();
+        Thread::wait(Vinterval);
+    }
+}
+
+void distancePID(void){
+    while(1){
+        distanceControl.setProcessValue(current_velocity);
+        Vout= distanceControl.compute();
         Thread::wait(Vinterval);
     }
 }
