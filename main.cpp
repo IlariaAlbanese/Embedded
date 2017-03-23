@@ -170,6 +170,7 @@ void Update_State(){
     
 void Counting(){
     //led1=1;
+    Update_State();
     temp= timer.read_ms();
     buffer_speed[j]=abs(buffer_time[j]-temp);
     buffer_time[j]=temp;
@@ -184,7 +185,8 @@ void Counting(){
     }
 } 
 void User_read(void);
-//Main
+Thread* userReadThread;
+Thread* velocityControlThread;
 int main() {
     PIDinit();
 
@@ -215,19 +217,17 @@ int main() {
     I1.rise(&Counting);
     I2.rise(&Counting);
     I3.rise(&Counting);
-    //Thread velocityControlThread;
-    //velocityControlThread.start(&velocityPID);
-    //pc.printf("Setting up user shit");
-    //Thread userReadThread;
-    //userReadThread.start(&User_read);
+    velocityControlThread=new Thread(osPriorityNormal, 256);
+    velocityControlThread->start(&velocityPID);
+    userReadThread=new Thread(osPriorityNormal);
+    userReadThread->start(&User_read);
     while(1){
-        Update_State();
-        pc.printf("Vout is %f\n\r",rotations_completed);
+         pc.printf("R is %f\n\r",rotations_user);
+         pc.printf("V is %f\n\r",required_velocity);   
         }
 }
 
 void User_read(void){
-        pc.printf("Ready to read");
         while(1){
         if(pc.readable()){
             char temp1=pc.getc();
@@ -237,8 +237,6 @@ void User_read(void){
             else if(temp1=='V'){
                 pc.scanf("%5f",&required_velocity);
             }
-            pc.printf("R is %f\n\r",rotations_user);
-            pc.printf("V is %f\n\r",required_velocity);   
         }
         Thread::wait(1);
     }
