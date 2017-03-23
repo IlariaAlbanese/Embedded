@@ -89,13 +89,14 @@ float VtauI=1;
 float duty_cycle=1.0f;
 float Vinterval= 0.01;
 float Vout=0.6f;
-
+/*
 float RKc=0.2;
 float RtauD=0.01;
 float RtauI=1;
 float R_duty_cycle=1.0f;
 float VintervalR= 0.01;
 float VoutR=0.6f;
+*/
 int index;
 int index_R=0;
 int index_V=0;
@@ -173,8 +174,8 @@ void PrecisionDistance_Control(){
 
 void Distance_Control(){
     led1=1;
-    if ((rotations_user-rotations_completed)<5){
-        velocity_required=0;
+    if ((rotations_user-rotations_completed)<10){
+        velocity_required*=((rotations_user-rotations_completed)/10));
     }
     if (rotations_completed>=rotations_user){
         stop_motor();
@@ -190,13 +191,14 @@ void PIDinit(void){
     velocityControl.setInterval(Vinterval);
     velocityControl.setSetPoint(required_velocity);
     velocityControl.setMode(1); 
-    
+    /*
     distanceControl.setInputLimits(0.0,rotations_completed);
     distanceControl.setOutputLimits(0.58f, 1.0f);
     distanceControl.setTunings(RKc, RtauI, RtauD);
     distanceControl.setInterval(VintervalR);
     distanceControl.setSetPoint(rotations_user);
     distanceControl.setMode(1);
+    */
 
 }
 
@@ -209,6 +211,7 @@ void velocityPID(void){
     }
 }
 
+/*
 void distancePID(void){
     while(1){
         distanceControl.setProcessValue(rotations_completed);
@@ -216,7 +219,8 @@ void distancePID(void){
         Thread::wait(VintervalR);
     }
 }
-
+*/
+/*
 void smallest(){
     while(1){
         if(VoutR<=Vout){
@@ -224,7 +228,7 @@ void smallest(){
         }
     }
 }
-
+*/
 void ISR(){
     Update_State();
     if (intState==0) {
@@ -235,6 +239,7 @@ void ISR(){
 void precision_ISR(void)
 {
     quadrature_state = (CHA*2 + CHB);
+    Update_State();
     if(quadrature_state==0){
     Counting_precision();
     }
@@ -258,6 +263,11 @@ void Counting(){
 
 void Counting_precision(){
     float position_degrees;
+    
+    temp= timer.read_ms();
+    buffer_speed=abs(buffer_time-temp);
+    buffer_time=temp;
+    Velocity_Measurement();
     
     increments++;
     position_degrees= increments*(360/117);
@@ -297,19 +307,28 @@ int main() {
     }
 
     
-    I1.rise(&ISR);
-    I2.rise(&ISR);
-    I3.rise(&ISR);
+
+    
     velocityControlThread=new Thread(osPriorityNormal, 256);
     velocityControlThread->start(&velocityPID);
-    userReadThread=new Thread(osPriorityNormal);
-    userReadThread->start(&User_read);
+
+    if(required_rotations%1==0){
+        I1.rise(&ISR);
+        I2.rise(&ISR);
+        I3.rise(&ISR);
+    }
+    else{
+        CHA.rise(&precision_ISR);
+        CHB.rise(&precision_ISR);
+    }
+        
     while(1){
     User_read();
     pc.printf("R is %f\n\r", rotations_user);
     pc.printf("Velocity is %f\n\r", required_velocity);  
-        }
+    }
 }
+
 void User_read(){
             if(pc.readable()){
             index=0;
@@ -363,8 +382,8 @@ void User_read(){
         }
         rotations_user=atof(rot_string);
         required_velocity=atof(vel_string);
-        }
     }
+}
 
 void play(){
     if(note==A){
