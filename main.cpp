@@ -34,7 +34,7 @@ State   L1  L2  L3
 6       -   -   -
 7       -   -   -
 */
-Serial pc(SERIAL_TX, SERIAL_RX);
+RawSerial pc(SERIAL_TX, SERIAL_RX);
 //Drive state to output table
 const int8_t driveTable[] = {0x12,0x18,0x09,0x21,0x24,0x06,0x00,0x00};
 
