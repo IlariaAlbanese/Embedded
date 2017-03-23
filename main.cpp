@@ -84,7 +84,14 @@ float duty_cycle=1.0f;
 float Vinterval= 0.01;
 float Vout=0.6f;
 //float wait_time=1;              //Time to wait between chages of state
-
+int index;
+int index_R=0;
+int index_V=0;
+bool found_R;
+bool found_V;
+string rot_string;
+string vel_string;
+char input_buffer[16];
 //void Velocity_Control(void);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -225,25 +232,53 @@ int main() {
     userReadThread=new Thread(osPriorityNormal);
     userReadThread->start(&User_read);
     while(1){
-         pc.printf("R is %f\n\r",rotations_completed);
-         pc.printf("V is %f\n\r",current_velocity);   
+         User_read();   
         }
 }
 
-void User_read(void){
-        while(1){
-        if(pc.readable()){
-            char temp1=pc.getc();
-            if (temp1=='R'){
-                pc.scanf("%5f",&rotations_user);
-            }
-            else if(temp1=='V'){
-                pc.scanf("%5f",&required_velocity);
-            }
+void User_read(){
+            if(pc.readable()){
+            index=0;
+            do{
+                input_buffer[index]=pc.getc();
+                index++;
+            }while(pc.getc()!='\n');
+        }  
+        found_R=false;
+        found_V=false;
+        //find the positions of R&V
+        for(int i=0;i<=index;i++){
+            if(input_buffer[i]=='R'){
+                index_R=i;
+                found_R=true;
+                }
+            if(input_buffer[i]=='V'){
+                index_V=i;
+                found_V=true;
+                }
         }
-        Thread::wait(1);
+        if(found_R==true&&found_V==true){
+            for (int r=index_R+1;r<index_V-1;r++){
+                rot_string=rot_string+input_buffer[r];
+                }
+            for (int v=index_V+1;v<16;v++){
+                vel_string=vel_string+input_buffer[v];
+                }
+        }
+        else if(found_R==true&&found_V==false){
+            for (int r=index_R+1;r<16;r++){
+                rot_string=rot_string+input_buffer[r];
+                }
+        }
+        else if(found_R==false&&found_V==true){
+            for (int v=index_V+1;v<16;v++){
+                vel_string=vel_string+input_buffer[v];
+                }
+        }
+        else{
+            pc.printf("Input not recognised");
+        }
     }
-}
 
 void play(){
     if(note==A){
