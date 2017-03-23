@@ -69,7 +69,7 @@ int buffer_time;
 int buffer_speed;
 int temp=0;
 float rotations_user=50;
-float frequency= 0;
+float frequency= 1.0;
 
 volatile int rotations_completed=0;
 volatile float required_velocity=0.7f;       //Input velocity from user       
@@ -84,14 +84,7 @@ float duty_cycle=1.0f;
 float Vinterval= 0.01;
 float Vout=0.6f;
 //float wait_time=1;              //Time to wait between chages of state
-int index;
-int index_R=0;
-int index_V=0;
-bool found_R;
-bool found_V;
-string rot_string;
-string vel_string;
-char input_buffer[16];
+
 //void Velocity_Control(void);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -141,7 +134,11 @@ void stop_motor(){
 
 
 void Velocity_Measurement(){
-    current_velocity= 1000/buffer_speed[j];
+    current_velocity= 1000/buffer_speed;
+}
+
+void Velocity_Measurement_precision(){
+    current_velocity_precision= 1000/precision_speed;
 }
 
 void Distance_Control(){
@@ -180,6 +177,16 @@ void ISR(){
     Counting();
     }
 }
+
+void precisionISR(void)
+{
+    int quadrature_state = (CHA*2 + CHB);
+    int temp_prec;
+    if(quadrature_state==0){
+    Counting_precision();
+    }
+}
+
 void Update_State(){
     intState = readRotorState();
     motorOut((intState-orState+lead+6)%6); //+6 to make sure the remainder is positive
@@ -194,8 +201,21 @@ void Counting(){
     Velocity_Measurement();
     Distance_Control();
     rotations_completed++;
-    }
 } 
+
+void Counting_precision(){
+    //led1=1;
+    //Update_State();
+    //temp_prec= timer.read_ms();
+    //precision_speed=abs(precision_time-temp);
+    //precision_time=temp;
+    //Velocity_Measurement_precision();
+    //Distance_Control();
+    increments++;
+    current_position
+    
+}
+
 void User_read(void);
 Thread* userReadThread;
 Thread* velocityControlThread;
@@ -232,53 +252,25 @@ int main() {
     userReadThread=new Thread(osPriorityNormal);
     userReadThread->start(&User_read);
     while(1){
-         User_read();   
+         pc.printf("R is %f\n\r",rotations_completed);
+         pc.printf("V is %f\n\r",current_velocity);   
         }
 }
 
-void User_read(){
-            if(pc.readable()){
-            index=0;
-            do{
-                input_buffer[index]=pc.getc();
-                index++;
-            }while(pc.getc()!='\n');
-        }  
-        found_R=false;
-        found_V=false;
-        //find the positions of R&V
-        for(int i=0;i<=index;i++){
-            if(input_buffer[i]=='R'){
-                index_R=i;
-                found_R=true;
-                }
-            if(input_buffer[i]=='V'){
-                index_V=i;
-                found_V=true;
-                }
+void User_read(void){
+        while(1){
+        if(pc.readable()){
+            char temp1=pc.getc();
+            if (temp1=='R'){
+                pc.scanf("%5f",&rotations_user);
+            }
+            else if(temp1=='V'){
+                pc.scanf("%5f",&required_velocity);
+            }
         }
-        if(found_R==true&&found_V==true){
-            for (int r=index_R+1;r<index_V-1;r++){
-                rot_string=rot_string+input_buffer[r];
-                }
-            for (int v=index_V+1;v<16;v++){
-                vel_string=vel_string+input_buffer[v];
-                }
-        }
-        else if(found_R==true&&found_V==false){
-            for (int r=index_R+1;r<16;r++){
-                rot_string=rot_string+input_buffer[r];
-                }
-        }
-        else if(found_R==false&&found_V==true){
-            for (int v=index_V+1;v<16;v++){
-                vel_string=vel_string+input_buffer[v];
-                }
-        }
-        else{
-            pc.printf("Input not recognised");
-        }
+        Thread::wait(1);
     }
+}
 
 void play(){
     if(note==A){
@@ -303,7 +295,7 @@ void play(){
         frequency=392.00;
     }
     else{
-        frequency=0.0;
+        frequency=1.0;
     }
     
 }
