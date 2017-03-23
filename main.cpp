@@ -53,8 +53,8 @@ InterruptIn I1(I1pin);
 InterruptIn I2(I2pin);
 InterruptIn I3(I3pin);
 
-InterruptIn CHA(CHA);
-InterruptIn CHB(CHB);
+InterruptIn CHAp(CHA);
+InterruptIn CHBp(CHB);
 
 //Motor Drive outputs
 DigitalOut L1L(L1Lpin);
@@ -74,15 +74,15 @@ int buffer_speed;
 int temp=0;
 int increments=0;
 float precision_rotations=0;
-float rotations_user=50;
+float rotations_user=100;
 float frequency= 1.0;
 int quadrature_state=0;
 volatile int rotations_completed=0;
-volatile float required_velocity=0.7f;       //Input velocity from user       
+volatile float required_velocity=0.70f;       //Input velocity from user       
 float current_velocity=0;      //Measured velocity of motor
 float Threshold=0;
 Timer timer;
-
+volatile char note;
 float VKc=0.2;
 float VtauD=0.01;
 float VtauI=1;
@@ -111,6 +111,10 @@ int vel_index=0;
 //float wait_time=1;              //Time to wait between chages of state
 
 //void Velocity_Control(void);
+//function definitions for which it complained
+void Update_State(void);
+void Counting(void);
+void Counting_precision(void);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 //Set a given drive state
@@ -165,7 +169,7 @@ void Velocity_Measurement(){
 void PrecisionDistance_Control(){
     led1=1;
     if ((rotations_user-precision_rotations)<5){
-        velocity_required=0;
+        required_velocity=0;
     }
     if (precision_rotations>=rotations_user){
         stop_motor();
@@ -173,9 +177,10 @@ void PrecisionDistance_Control(){
 }
 
 void Distance_Control(){
+    float difference=rotations_user-rotations_completed;
     led1=1;
-    if ((rotations_user-rotations_completed)<10){
-        velocity_required*=((rotations_user-rotations_completed)/10));
+    if (difference<10){
+        required_velocity= required_velocity*(difference/10);
     }
     if (rotations_completed>=rotations_user){
         stop_motor();
@@ -185,7 +190,7 @@ void Distance_Control(){
 PID velocityControl(VKc, VtauI, VtauD, Vinterval);
 
 void PIDinit(void){
-    velocityControl.setInputLimits(0.0,current_velocity);
+    velocityControl.setInputLimits(0.0,required_velocity);
     velocityControl.setOutputLimits(0.58f, 1.0f);
     velocityControl.setTunings(VKc, VtauI, VtauD);
     velocityControl.setInterval(Vinterval);
@@ -251,7 +256,6 @@ void Update_State(){
 }
     
 void Counting(){
-    //led1=1;
     //Update_State();
     temp= timer.read_ms();
     buffer_speed=abs(buffer_time-temp);
@@ -297,14 +301,17 @@ int main() {
     timer.start();
     
     //pc.printf("Setting up pwm");
+    /*
         L1H.period(1/frequency);
         L2H.period(1/frequency);
         L2H.period(1/frequency);    
+    */
     
     
     for(int k=0;k<5;k++){ 
         Update_State();
     }
+    
 
     
 
@@ -312,18 +319,21 @@ int main() {
     velocityControlThread=new Thread(osPriorityNormal, 256);
     velocityControlThread->start(&velocityPID);
 
-    if(required_rotations%1==0){
+    //if(fmod(rotations_user,1)==0){
         I1.rise(&ISR);
         I2.rise(&ISR);
         I3.rise(&ISR);
-    }
+    //}
+    /*
     else{
-        CHA.rise(&precision_ISR);
-        CHB.rise(&precision_ISR);
+        CHAp.rise(&precision_ISR);
+        CHBp.rise(&precision_ISR);
     }
+    */
         
-    while(1){
+    while(1){/*
     User_read();
+    */
     pc.printf("R is %f\n\r", rotations_user);
     pc.printf("Velocity is %f\n\r", required_velocity);  
     }
@@ -384,31 +394,31 @@ void User_read(){
         required_velocity=atof(vel_string);
     }
 }
-
+/*
 void play(){
-    if(note==A){
+    if(note=="A"){
         frequency=440.0;
     }
-     else if(note==B){
+     else if(note=="B"){
         frequency= 493.88;
     }
-    else if(note==C){
+    else if(note=="C"){
         frequency=261.63;
     }
-    else if(note==D){
+    else if(note=="D"){
         frequency=293.66;
     }
-    else if(note==E){
+    else if(note=="E"){
         frequency=329.63;
     }
-    else if(note==F){
+    else if(note=="F"){
         frequency=349.23;
     }
-    else if(note==G){
+    else if(note=="G"){
         frequency=392.00;
     }
     else{
         frequency=1.0;
     }
-    
 }
+*/
