@@ -1,7 +1,8 @@
 #include "mbed.h"
 #include "rtos.h"
 #include "PID.h"
-#include "mbed_memory_status.h"
+#include <cstdlib>
+#include <string>
 //Photointerrupter input pins
 #define I1pin D2
 #define I2pin D11
@@ -95,7 +96,17 @@ float RtauI=1;
 float R_duty_cycle=1.0f;
 float VintervalR= 0.01;
 float VoutR=0.6f;
-
+int index;
+int index_R=0;
+int index_V=0;
+bool found_R;
+bool found_V;
+char rot_string[5];
+char vel_string[5];
+//float wait_time=1;              //Time to wait between chages of state
+char input_buffer[16];
+int rot_index=0;
+int vel_index=0;
 //float wait_time=1;              //Time to wait between chages of state
 
 //void Velocity_Control(void);
@@ -294,25 +305,66 @@ int main() {
     userReadThread=new Thread(osPriorityNormal);
     userReadThread->start(&User_read);
     while(1){
-         pc.printf("R is %f\n\r",rotations_completed);
-         pc.printf("V is %f\n\r",current_velocity);   
+    User_read();
+    pc.printf("R is %f\n\r", rotations_user);
+    pc.printf("Velocity is %f\n\r", required_velocity);  
         }
 }
-
-void User_read(void){
-        while(1){
-        if(pc.readable()){
-            char temp1=pc.getc();
-            if (temp1=='R'){
-                pc.scanf("%5f",&rotations_user);
-            }
-            else if(temp1=='V'){
-                pc.scanf("%5f",&required_velocity);
-            }
+void User_read(){
+            if(pc.readable()){
+            index=0;
+            do{
+                input_buffer[index]=pc.getc();
+                pc.putc(input_buffer[index]);
+                index++;
+            }while(pc.getc() != 10 && pc.getc() != 13);
+          pc.printf("Reading complete");
+        found_R=false;
+        found_V=false;
+        //find the positions of R&V
+        for(int i=0;i<=index;i++){
+            if(input_buffer[i]=='R'){
+                index_R=i;
+                found_R=true;
+                }
+            if(input_buffer[i]=='V'){
+                index_V=i;
+                found_V=true;
+                }
         }
-        Thread::wait(1);
+        if(found_R==true&&found_V==true){
+            rot_index=0;
+            vel_index=0;
+            for (int r=index_R+1;r<index_V-1;r++){
+                rot_string[rot_index]=input_buffer[r];
+                rot_index++;
+                }
+            for (int v=index_V+1;v<16;v++){
+                vel_string[vel_index]=input_buffer[v];
+                vel_index++;
+                }
+        }
+        else if(found_R==true&&found_V==false){
+            rot_index=0;
+            for (int r=index_R+1;r<16;r++){
+                rot_string[rot_index]=input_buffer[r];
+                rot_index++;
+                }
+        }
+        else if(found_R==false&&found_V==true){
+            vel_index=0;
+            for (int v=index_V+1;v<16;v++){
+                vel_string[vel_index]=input_buffer[v];
+                vel_index++;
+                }
+        }
+        else{
+            pc.printf("Input not recognised");
+        }
+        rotations_user=atof(rot_string);
+        required_velocity=atof(vel_string);
+        }
     }
-}
 
 void play(){
     if(note==A){
