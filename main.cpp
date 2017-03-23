@@ -53,11 +53,11 @@ InterruptIn I2(I2pin);
 InterruptIn I3(I3pin);
 
 //Motor Drive outputs
-PwmOut L1L(L1Lpin);
+DigitalOut L1L(L1Lpin);
 PwmOut L1H(L1Hpin);
-PwmOut L2L(L2Lpin);
+DigitalOut L2L(L2Lpin);
 PwmOut L2H(L2Hpin);
-PwmOut L3L(L3Lpin);
+DigitalOut L3L(L3Lpin);
 PwmOut L3H(L3Hpin);
 
 int8_t orState = 0;    //Rotot offset at motor state 0
@@ -69,6 +69,7 @@ int buffer_time;
 int buffer_speed;
 int temp=0;
 float rotations_user=50;
+int frequency= 440;
 
 volatile int rotations_completed=0;
 volatile float required_velocity=0.7f;       //Input velocity from user       
@@ -204,14 +205,13 @@ int main() {
     buffer_speed=0;
     
     timer.start();
+    
     //pc.printf("Setting up pwm");
-        L1L.period_ms(100);
-        L1H.period_ms(100);
-        L2L.period_ms(100);
-        L2H.period_ms(100);
-        L3L.period_ms(100);
-        L2H.period_ms(100);
-        
+        L1H.period(1/frequency);
+        L2H.period(1/frequency);
+        L2H.period(1/frequency);    
+    
+    
     for(int k=0;k<5;k++){ 
         Update_State();
     }
