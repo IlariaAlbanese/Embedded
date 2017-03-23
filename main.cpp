@@ -68,16 +68,16 @@ int8_t orState = 0;    //Rotot offset at motor state 0
 int8_t intState = 0;
 int8_t intStateOld = 0;
 int i=0;
-//int j=0;
-int buffer_time;
-int buffer_speed;
+
+int current_time;
+int speed;
 int temp=0;
 int increments=0;
 float precision_rotations=0;
-float rotations_user=100;
+float required_rotations=100;
 float frequency= 1.0;
 int quadrature_state=0;
-volatile int rotations_completed=0;
+volatile int current_rotations=0;
 volatile float required_velocity=0.70f;       //Input velocity from user       
 float current_velocity=0;      //Measured velocity of motor
 float Threshold=0;
@@ -89,14 +89,7 @@ float VtauI=1;
 float duty_cycle=1.0f;
 float Vinterval= 0.01;
 float Vout=0.6f;
-/*
-float RKc=0.2;
-float RtauD=0.01;
-float RtauI=1;
-float R_duty_cycle=1.0f;
-float VintervalR= 0.01;
-float VoutR=0.6f;
-*/
+
 int index;
 int index_R=0;
 int index_V=0;
@@ -104,13 +97,11 @@ bool found_R;
 bool found_V;
 char rot_string[5];
 char vel_string[5];
-//float wait_time=1;              //Time to wait between chages of state
+
 char input_buffer[16];
 int rot_index=0;
 int vel_index=0;
-//float wait_time=1;              //Time to wait between chages of state
 
-//void Velocity_Control(void);
 //function definitions for which it complained
 void Update_State(void);
 void Counting(void);
@@ -163,26 +154,26 @@ void stop_motor(){
 
 
 void Velocity_Measurement(){
-    current_velocity= 1000/buffer_speed;
+    current_velocity= 1000/speed;
 }
 
 void PrecisionDistance_Control(){
     led1=1;
-    if ((rotations_user-precision_rotations)<5){
+    if ((required_rotations-precision_rotations)<5){
         required_velocity=0;
     }
-    if (precision_rotations>=rotations_user){
+    if (precision_rotations>=required_rotations){
         stop_motor();
     }
 }
 
 void Distance_Control(){
-    float difference=rotations_user-rotations_completed;
+    float difference=required_rotations-current_rotations;
     led1=1;
     if (difference<10){
         required_velocity= required_velocity*(difference/10);
     }
-    if (rotations_completed>=rotations_user){
+    if (current_rotations>=required_rotations){
         stop_motor();
     }
 }
@@ -197,11 +188,11 @@ void PIDinit(void){
     velocityControl.setSetPoint(required_velocity);
     velocityControl.setMode(1); 
     /*
-    distanceControl.setInputLimits(0.0,rotations_completed);
+    distanceControl.setInputLimits(0.0,current_rotations);
     distanceControl.setOutputLimits(0.58f, 1.0f);
     distanceControl.setTunings(RKc, RtauI, RtauD);
     distanceControl.setInterval(VintervalR);
-    distanceControl.setSetPoint(rotations_user);
+    distanceControl.setSetPoint(required_rotations);
     distanceControl.setMode(1);
     */
 
@@ -219,7 +210,7 @@ void velocityPID(void){
 /*
 void distancePID(void){
     while(1){
-        distanceControl.setProcessValue(rotations_completed);
+        distanceControl.setProcessValue(current_rotations);
         VoutR= distanceControl.compute();
         Thread::wait(VintervalR);
     }
@@ -258,19 +249,19 @@ void Update_State(){
 void Counting(){
     //Update_State();
     temp= timer.read_ms();
-    buffer_speed=abs(buffer_time-temp);
-    buffer_time=temp;
+    speed=abs(current_time-temp);
+    current_time=temp;
     Velocity_Measurement();
     Distance_Control();
-    rotations_completed++;
+    current_rotations++;
 } 
 
 void Counting_precision(){
     float position_degrees;
     
     temp= timer.read_ms();
-    buffer_speed=abs(buffer_time-temp);
-    buffer_time=temp;
+    speed=abs(current_time-temp);
+    current_time=temp;
     Velocity_Measurement();
     
     increments++;
@@ -295,8 +286,8 @@ int main() {
     orState = motorHome();
     //pc.printf("Rotor origin: %x\n\r",orState);
     
-    buffer_time=0;
-    buffer_speed=0;
+    current_time=0;
+    speed=0;
     
     timer.start();
     
@@ -319,7 +310,7 @@ int main() {
     velocityControlThread=new Thread(osPriorityNormal, 256);
     velocityControlThread->start(&velocityPID);
 
-    //if(fmod(rotations_user,1)==0){
+    //if(fmod(required_rotations,1)==0){
         I1.rise(&ISR);
         I2.rise(&ISR);
         I3.rise(&ISR);
@@ -334,7 +325,7 @@ int main() {
     while(1){/*
     User_read();
     */
-    pc.printf("R is %f\n\r", rotations_user);
+    pc.printf("R is %f\n\r", required_rotations);
     pc.printf("Velocity is %f\n\r", required_velocity);  
     }
 }
@@ -390,7 +381,7 @@ void User_read(){
         else{
             pc.printf("Input not recognised");
         }
-        rotations_user=atof(rot_string);
+        required_rotations=atof(rot_string);
         required_velocity=atof(vel_string);
     }
 }
