@@ -303,8 +303,11 @@ int main() {
         L2H.period(1/frequency);    
     */
     
+     I1.rise(&ISR);
+     I2.rise(&ISR);
+     I3.rise(&ISR);
     
-    for(int k=0;k<5;k++){ 
+     for(int k=0;k<5;k++){ 
         Update_State();
     }
     
@@ -316,9 +319,7 @@ int main() {
     velocityControlThread->start(&velocityPID);
 
     //if(fmod(required_rotations,1)==0){
-        I1.rise(&ISR);
-        I2.rise(&ISR);
-        I3.rise(&ISR);
+
     //}
     /*
     else{
