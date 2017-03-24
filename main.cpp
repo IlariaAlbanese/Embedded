@@ -54,8 +54,8 @@ InterruptIn I1(I1pin);
 InterruptIn I2(I2pin);
 InterruptIn I3(I3pin);
 
-InterruptIn CHAp(CHA);
-InterruptIn CHBp(CHB);
+InterruptIn CHApin(CHA);
+InterruptIn CHBpin(CHB);
 
 //Motor Drive outputs
 PwmOut L1L(L1Lpin);
@@ -75,11 +75,11 @@ int speed;
 float temp=0;
 int increments=0;
 float precision_rotations=0;
-float required_rotations=600;
+float required_rotations=100;
 float frequency= 1.0;
 int quadrature_state=0;
 volatile int current_rotations=0;
-volatile float required_velocity=20;       //Input velocity from user       
+volatile float required_velocity=15;       //Input velocity from user       
 float current_velocity=0;      //Measured velocity of motor
 float Threshold=0;
 Timer timer;
@@ -104,12 +104,13 @@ char vel_string[5];
 char input_buffer[16];
 int rot_index=0;
 int vel_index=0;
+Thread velocityControlThread;
 
-//function definitions for which it complained
+//some function definitions
 void Update_State(void);
 void Counting(void);
 void Counting_precision(void);
-Mutex speed_value;
+void velocityPID(void);
 //////////////////////////////////////////////////////////////////////////////////////////////////
 //Set a given drive state
 void motorOut(int8_t driveState){
@@ -149,16 +150,13 @@ int8_t motorHome() {
 }
 
 void stop_motor(){
-    __disable_irq();
-    motorOut(0);
-    wait (1.0);
-    __enable_irq();    
+    motorOut(0); 
+    wait(1);  
 }
 
 
 
 void PrecisionDistance_Control(){
-    //led1=1;
     if ((required_rotations-precision_rotations)<5){
         required_velocity=0;
     }
@@ -169,11 +167,15 @@ void PrecisionDistance_Control(){
 
 void Distance_Control(){
     float difference=required_rotations-current_rotations;
-    //led1=1;
-    if (difference<10){
-        required_velocity= required_velocity*(difference/10);
+    if (current_rotations>required_rotations*0.8){
+        led1=1;
+        Vout=0.2;
     }
-    if (current_rotations>=required_rotations){
+    if (current_rotations>required_rotations*0.9){
+        led1=1;
+        Vout=0.1;
+    }
+    if (difference<=0){
         stop_motor();
     }
 }
@@ -186,26 +188,18 @@ void PIDinit(void){
     velocityControl.setTunings(VKc, VtauI, VtauD);
     velocityControl.setInterval(Vinterval);
     velocityControl.setSetPoint(required_velocity);
-    velocityControl.setMode(1); 
-    /*
-    distanceControl.setInputLimits(0.0,current_rotations);
-    distanceControl.setOutputLimits(0.58f, 1.0f);
-    distanceControl.setTunings(RKc, RtauI, RtauD);
-    distanceControl.setInterval(VintervalR);
-    distanceControl.setSetPoint(required_rotations);
-    distanceControl.setMode(1);
-    */
-
+    velocityControl.setMode(1);
 }
 
 
 void velocityPID(void){
-    while(1){
+    do{
         velocityControl.setProcessValue(current_velocity);
         Vout=velocityControl.compute();       
         Thread::wait(Vinterval);
        
-    }
+    }while(led1=0);
+    
 }
 
 void ISR(){
@@ -264,7 +258,8 @@ void User_read(void);
     }
         }
 
-Thread velocityControlThread;
+
+
 int main() {
     PIDinit();
     
@@ -282,29 +277,25 @@ int main() {
         L2H.period(1/frequency);    
     */
     
-     I1.rise(&ISR);
-     I2.rise(&ISR);
-     I3.rise(&ISR);
-    
-     
-    kick_start();
-        
-    
     velocityControlThread.start(&velocityPID);
 
-    //if(fmod(required_rotations,1)==0){
-
-    //}
-    /*
-    else{
-        CHAp.rise(&precision_ISR);
-        CHBp.rise(&precision_ISR);
+    if(fmod(required_rotations,1)==0){
+        I1.rise(&ISR);
+        I2.rise(&ISR);
+        I3.rise(&ISR);
     }
-    */
+    
+    else{
+        CHApin.rise(&precision_ISR);
+        CHBpin.rise(&precision_ISR);
+    }
+    
+    
+    kick_start();
         
     while(1){
     User_read();
-    pc.printf("Current Velocity is %f\n\r",current_velocity);
+    pc.printf("Current rotations: %i\n\r",current_rotations);
     pc.printf("Vout is %f\n\r",Vout);
     }
 }
@@ -366,6 +357,7 @@ void User_read(){
         }
         if(found_R==true){
         required_rotations=atof(rot_string);
+        led1=0;
         }
         if (found_V==true){
         required_velocity=atof(vel_string);
