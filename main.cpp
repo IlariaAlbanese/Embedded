@@ -58,12 +58,12 @@ InterruptIn CHAp(CHA);
 InterruptIn CHBp(CHB);
 
 //Motor Drive outputs
-DigitalOut L1L(L1Lpin);
-PwmOut L1H(L1Hpin);
-DigitalOut L2L(L2Lpin);
-PwmOut L2H(L2Hpin);
-DigitalOut L3L(L3Lpin);
-PwmOut L3H(L3Hpin);
+PwmOut L1L(L1Lpin);
+DigitalOut L1H(L1Hpin);
+PwmOut L2L(L2Lpin);
+DigitalOut L2H(L2Hpin);
+PwmOut L3L(L3Lpin);
+DigitalOut L3H(L3Hpin);
 
 int8_t orState = 0;    //Rotot offset at motor state 0
 int8_t intState = 0;
@@ -72,24 +72,26 @@ int i=0;
 
 int current_time;
 int speed;
-int temp=0;
+float temp=0;
 int increments=0;
 float precision_rotations=0;
-float required_rotations=100;
+float required_rotations=600;
 float frequency= 1.0;
 int quadrature_state=0;
 volatile int current_rotations=0;
-volatile float required_velocity=0.70f;       //Input velocity from user       
+volatile float required_velocity=20;       //Input velocity from user       
 float current_velocity=0;      //Measured velocity of motor
 float Threshold=0;
 Timer timer;
 volatile char note;
-float VKc=0.2;
-float VtauD=0.01;
-float VtauI=1;
-float duty_cycle=1.0f;
-float Vinterval= 0.01;
-float Vout=1.0f;
+
+float VKc=27;
+float VtauD=0.001;
+float VtauI=1.4;
+
+
+float Vinterval= 0.001;
+float Vout=1.0;
 
 int index;
 int index_R=0;
@@ -107,7 +109,7 @@ int vel_index=0;
 void Update_State(void);
 void Counting(void);
 void Counting_precision(void);
-
+Mutex speed_value;
 //////////////////////////////////////////////////////////////////////////////////////////////////
 //Set a given drive state
 void motorOut(int8_t driveState){
@@ -116,11 +118,11 @@ void motorOut(int8_t driveState){
     int8_t driveOut = driveTable[driveState & 0x07];
     //Turn off first
     if (~driveOut & 0x01) L1L = 0;
-    if (~driveOut & 0x02) L1H.write(Vout);
+    if (~driveOut & 0x02) L1H = 1;
     if (~driveOut & 0x04) L2L = 0;
-    if (~driveOut & 0x08) L2H.write(Vout);
+    if (~driveOut & 0x08) L2H = 1;
     if (~driveOut & 0x10) L3L = 0;
-    if (~driveOut & 0x20) L3H.write(Vout);
+    if (~driveOut & 0x20) L3H = 1;
     
     //Then turn on
     if (driveOut & 0x01) L1L.write(Vout);
@@ -154,9 +156,6 @@ void stop_motor(){
 }
 
 
-void Velocity_Measurement(){
-    current_velocity= 1000/speed;
-}
 
 void PrecisionDistance_Control(){
     //led1=1;
@@ -183,7 +182,7 @@ PID velocityControl(VKc, VtauI, VtauD, Vinterval);
 
 void PIDinit(void){
     velocityControl.setInputLimits(0.0,required_velocity);
-    velocityControl.setOutputLimits(0.58f, 1.0f);
+    velocityControl.setOutputLimits(0.56, 0.90);
     velocityControl.setTunings(VKc, VtauI, VtauD);
     velocityControl.setInterval(Vinterval);
     velocityControl.setSetPoint(required_velocity);
@@ -203,29 +202,12 @@ void PIDinit(void){
 void velocityPID(void){
     while(1){
         velocityControl.setProcessValue(current_velocity);
-        Vout= velocityControl.compute();
+        Vout=velocityControl.compute();       
         Thread::wait(Vinterval);
+       
     }
 }
 
-/*
-void distancePID(void){
-    while(1){
-        distanceControl.setProcessValue(current_rotations);
-        VoutR= distanceControl.compute();
-        Thread::wait(VintervalR);
-    }
-}
-*/
-/*
-void smallest(){
-    while(1){
-        if(VoutR<=Vout){
-            Vout=VoutR;
-        }
-    }
-}
-*/
 void ISR(){
     Update_State();
     if (intState==0) {
@@ -248,11 +230,10 @@ void Update_State(){
 }
     
 void Counting(){
-    //Update_State();
     temp= timer.read_ms();
     speed=abs(current_time-temp);
     current_time=temp;
-    Velocity_Measurement();
+    current_velocity= 1000/speed;
     Distance_Control();
     current_rotations++;
 } 
@@ -263,7 +244,7 @@ void Counting_precision(){
     temp= timer.read_ms();
     speed=abs(current_time-temp);
     current_time=temp;
-    Velocity_Measurement();
+    current_velocity= 1000/speed;
     
     increments++;
     position_degrees= increments*(360/117);
@@ -276,26 +257,24 @@ void Counting_precision(){
 }
 
 void User_read(void);
-Thread* userReadThread;
-Thread* velocityControlThread;
+
+    void kick_start(){
+        for(int k=0;k<5;k++){ 
+        Update_State();
+    }
+        }
+
+Thread velocityControlThread;
 int main() {
     PIDinit();
-    led1=1;
     
     //pc.printf("Hello\n\r");
-    
     //Run the motor synchronisation
     orState = motorHome();
     //pc.printf("Rotor origin: %x\n\r",orState);
-    wait(1.0);
-    led1=0;
     current_time=0;
     speed=0;
-    wait(1.0);
-    led1=1;
     timer.start();
-    wait(1.0);
-    led1=0;
     //pc.printf("Setting up pwm");
     /*
         L1H.period(1/frequency);
@@ -307,16 +286,11 @@ int main() {
      I2.rise(&ISR);
      I3.rise(&ISR);
     
-     for(int k=0;k<5;k++){ 
-        Update_State();
-    }
+     
+    kick_start();
+        
     
-
-    
-
-    
-    velocityControlThread=new Thread(osPriorityNormal, 256);
-    velocityControlThread->start(&velocityPID);
+    velocityControlThread.start(&velocityPID);
 
     //if(fmod(required_rotations,1)==0){
 
@@ -328,17 +302,20 @@ int main() {
     }
     */
         
-    while(1){/*
+    while(1){
     User_read();
-    */
-    pc.printf("R is %f\n\r", required_rotations);
-    pc.printf("Velocity is %f\n\r", required_velocity);  
+    pc.printf("Current Velocity is %f\n\r",current_velocity);
+    pc.printf("Vout is %f\n\r",Vout);
     }
 }
 
 void User_read(){
             if(pc.readable()){
             index=0;
+            timer.reset();
+            velocityControlThread.terminate();
+            current_rotations=0;
+            __disable_irq();
             do{
                 input_buffer[index]=pc.getc();
                 pc.putc(input_buffer[index]);
@@ -387,9 +364,16 @@ void User_read(){
         else{
             pc.printf("Input not recognised");
         }
+        if(found_R==true){
         required_rotations=atof(rot_string);
+        }
+        if (found_V==true){
         required_velocity=atof(vel_string);
-    }
+        }
+        __enable_irq();
+        kick_start();
+        velocityControlThread.start(&velocityPID);
+    }  
 }
 /*
 void play(){
