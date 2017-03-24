@@ -1,2 +1,2 @@
 # Embedded
-Embedded stuff
+Sometimes the code will run at max speed. Please restart.
