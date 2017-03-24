@@ -169,11 +169,11 @@ void Distance_Control(){
     float difference=required_rotations-current_rotations;
     if (current_rotations>required_rotations*0.8){
         led1=1;
-        Vout=0.2;
+        Vout=0.2+(required_rotations/10000);
     }
     if (current_rotations>required_rotations*0.9){
         led1=1;
-        Vout=0.1;
+        Vout=0.095+(required_rotations/10000);
     }
     if (difference<=0){
         stop_motor();
